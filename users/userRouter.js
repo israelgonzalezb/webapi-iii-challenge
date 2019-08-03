@@ -6,7 +6,7 @@ const router = express.Router();
 
 const errorHandler = (err, req, res, next) => {
   if(err) {
-    res.status(500).json({message: "There was an error handling the request"});
+    res.status(500).json({message: "There was an error handling the request", err});
   }
 }
 
@@ -27,7 +27,7 @@ const validateUserId = async (req, res, next) => {
 }
 
 const validateUser = (req, res, next) => {
-  if (!Object.keys(req.body).length){
+  if (Object.keys(req.body).length){
     if (!req.body.name){
     res.status(400).json({message: "missing required name field"});
   }else{
@@ -72,19 +72,52 @@ router.post("/:id/posts", [validateUserId, validatePost], async (req, res, next)
   }
 });
 
-router.get("/", (req, res) => {
-  
+router.get("/", async (req, res, next) => {
+  try{
+    const users = await Users.get();
+    res.status(200).json(users);
+  }catch{
+    const err = new Error("Error getting users");
+    next(err);
+  }
 });
 
 router.get("/:id", validateUserId, (req, res) => {
-  res.json(req.user);
+  res.status(200).json(req.user);
 });
 
-router.get("/:id/posts", validateUserId, (req, res) => {});
+router.get("/:id/posts", validateUserId, async (req, res, next) => {
+  //req.user.id
+  try{
+    const posts = await Users.getUserPosts(req.user.id);
+    res.status(200).json(posts);
+  }catch{
+    const err = new Error("Error getting user's posts");
+    next(err);
+}
+});
 
-router.delete("/:id", validateUserId, (req, res) => {});
+router.delete("/:id", validateUserId, async (req, res, next) => {
+  try{
+    const removedCount = await Users.remove(req.user.id);
+    console.log(`Deleted ${removedCount} records`);
+    res.status(204).end();
+  }catch{
+    const err = new Error("Error deleting user");
+    next(err);
+}
+});
 
-router.put("/:id", validateUserId, (req, res) => {});
+router.put("/:id", [validateUserId, validateUser], async (req, res, next) => {
+  try{
+    const updatedUserData = await Users.update(req.user.id,req.body);
+    /*const updatedUser = await Users.getById(updatedUserData);*/
+    res.status(200).json(updatedUserData);
+  }catch{
+    const err = new Error("There was a problem updating the user");
+    next(err);
+}
+});
 
 //custom middleware
 
